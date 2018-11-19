@@ -14,6 +14,15 @@
   version = "v1.6.2"
 
 [[projects]]
+  name = "github.com/jmoiron/sqlx"
+  packages = [
+    ".",
+    "reflectx"
+  ]
+  revision = "d161d7a76b5661016ad0b085869f77fd410f3e6a"
+  version = "v1.2.0"
+
+[[projects]]
   name = "github.com/json-iterator/go"
   packages = ["."]
   revision = "1624edc4454b8682399def8740d46db5e4362ba4"
@@ -34,6 +43,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "85a15228320b7dc3eda551f25cf88b04656614e1d2cef3cc7b99402d8c2373d5"
+  inputs-digest = "24567883622e88bcff878bae0ecb3816256aa883e0dbe0a037ff711cfdeaa580"
   solver-name = "gps-cdcl"
   solver-version = 1
