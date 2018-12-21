@@ -1,3 +1,3 @@
 
-run:
-	go run cmd/main.go
+start:
+	docker-compose up

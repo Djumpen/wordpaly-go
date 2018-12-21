@@ -1,15 +1,20 @@
 package storage
 
-import "github.com/djumpen/wordplay-go/entities"
+type Dictionary struct {
+	ID          int    `db:"id"`
+	Title       string `db:"title"`
+	Description string `db:"description"`
+	CreatedAt   string `db:"created_at" json:",omitempty"`
+}
 
-func (s *Storage) GetDictionaries(uid int) ([]*entities.Dictionary, error) {
-	return []*entities.Dictionary{
-		&entities.Dictionary{
+func (s *Storage) GetDictionaries(uid int) ([]*Dictionary, error) {
+	return []*Dictionary{
+		&Dictionary{
 			ID:          100,
 			Title:       "MyDict1",
 			Description: "Funny words",
 		},
-		&entities.Dictionary{
+		&Dictionary{
 			ID:          101,
 			Title:       "MyDict2",
 			Description: "Another word",
@@ -17,8 +22,8 @@ func (s *Storage) GetDictionaries(uid int) ([]*entities.Dictionary, error) {
 	}, nil
 }
 
-func (s *Storage) GetDictionary(uid, did int) (*entities.Dictionary, error) {
-	return &entities.Dictionary{
+func (s *Storage) GetDictionary(uid, did int) (*Dictionary, error) {
+	return &Dictionary{
 		ID:          100,
 		Title:       "MyDict1",
 		Description: "Funny words",

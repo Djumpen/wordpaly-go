@@ -1,0 +1,30 @@
+version: '3'
+services:
+  app:
+      image: golang:1.10
+      volumes:
+        - .:/go/src/github.com/djumpen/wordplay-go/
+      working_dir: /go/src/github.com/djumpen/wordplay-go/
+      command: ["./entrypoint.sh"]
+      ports:
+      - "8000:8000"
+
+  mysqldb:
+    image: mysql:5.7
+    container_name: wordplay-mysql
+    restart: always
+    volumes:
+      - mysqldata:/var/lib/mysql
+    environment:
+      - "MYSQL_DATABASE=wordplay"
+      - "MYSQL_USER=wpuser"
+      - "MYSQL_PASSWORD=pass"
+      - "MYSQL_ROOT_PASSWORD=pass"
+      - "DB_PORT=3306"
+      - "DB_HOST=127.0.0.1"
+    ports:
+      - "33061:3306"
+
+volumes:
+  mysqldata:
+    driver: local
