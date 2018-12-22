@@ -1,7 +1,11 @@
 package api
 
 import (
-	"errors"
+	"fmt"
+	"net/http"
+	"strconv"
+
+	"github.com/pkg/errors"
 
 	"github.com/djumpen/wordplay-go/cfg"
 	"github.com/djumpen/wordplay-go/storage"
@@ -21,6 +25,10 @@ const (
 	UserParam = "currUser"
 )
 
+type stackTracer interface {
+	StackTrace() errors.StackTrace
+}
+
 func NewApi(config *cfg.Config, storage *storage.Storage) *API {
 	return &API{
 		version: "1.0",
@@ -29,7 +37,7 @@ func NewApi(config *cfg.Config, storage *storage.Storage) *API {
 	}
 }
 
-func currUser(c *gin.Context) (*storage.User, error) {
+func extractUser(c *gin.Context) (*storage.User, error) {
 	userIface, ok := c.Get(UserParam)
 	if ok != true {
 		return nil, errors.New("Unauthorized")
@@ -40,3 +48,52 @@ func currUser(c *gin.Context) (*storage.User, error) {
 	}
 	return user, nil
 }
+
+func responseOK(c *gin.Context, response gin.H) {
+	c.JSON(http.StatusOK, gin.H{
+		"data":  response,
+		"error": nil,
+	})
+}
+
+func responseCreated(c *gin.Context, response gin.H) {
+	c.JSON(http.StatusCreated, gin.H{
+		"data":  response,
+		"error": nil,
+	})
+}
+
+func responseErr(c *gin.Context, code int, description string, err error) {
+	errResp := gin.H{
+		"code":        code,
+		"description": description,
+	}
+	if gin.Mode() == gin.DebugMode {
+		wrapDebug(errResp, err)
+	}
+	c.JSON(http.StatusBadRequest, gin.H{
+		"data":  nil,
+		"error": errResp,
+	})
+}
+
+func wrapDebug(errResp gin.H, err error) {
+	debugResp := gin.H{
+		"details": fmt.Sprintf("%s", err),
+	}
+	errSt, ok := err.(stackTracer)
+	if ok {
+		trace := make(gin.H)
+		st := errSt.StackTrace()
+		for i, v := range st {
+			if i > 3 {
+				break
+			}
+			trace[strconv.Itoa(i)] = fmt.Sprintf("%+v", v)
+		}
+		debugResp["trace"] = trace
+	}
+	errResp["debug"] = debugResp
+}
+
+// func ResponseErrWithFields(c *gin.Context)

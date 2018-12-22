@@ -1,10 +1,6 @@
 package api
 
 import (
-	"fmt"
-	"net/http"
-	"strconv"
-
 	"github.com/djumpen/wordplay-go/storage"
 	"github.com/gin-gonic/gin"
 	"github.com/raja/argon2pw"
@@ -15,17 +11,18 @@ type UserCreateReq struct {
 	Password string
 }
 
-type UserLoginReq struct {
+type UserResp struct {
+	ID       int64
 	Username string
-	Password string
+	Email    string
+	Name     string
 }
 
 func (api *API) CreateUser() func(c *gin.Context) {
 	return func(c *gin.Context) {
-		// c.Writer.Header().Set("Content-Type", "application/json")
 		var json UserCreateReq
 		if err := c.ShouldBindJSON(&json); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			responseErr(c, 100, "Some error", err)
 			return
 		}
 
@@ -33,37 +30,41 @@ func (api *API) CreateUser() func(c *gin.Context) {
 
 		hash, err := argon2pw.GenerateSaltedHash(json.Password)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			responseErr(c, 100, "Some error", err)
 			return
 		}
-
 		user := &storage.User{
 			Username: json.Username,
 			Hash:     hash,
 		}
 		id, err := api.storage.CreateUser(user)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			responseErr(c, 100, "Some error", err)
 			return
 		}
-		c.JSON(http.StatusCreated, gin.H{"status": "Created with id " + strconv.Itoa(int(id))})
+		responseCreated(c, gin.H{
+			"User": gin.H{
+				"ID": id,
+			},
+		})
 	}
 }
 
 func (api *API) GetCurrentUser() func(c *gin.Context) {
 	return func(c *gin.Context) {
-		// var json UserLoginReq
-
-		user, err := currUser(c)
+		user, err := extractUser(c)
 		if err != nil {
-			fmt.Println(err)
-			c.AbortWithStatus(http.StatusBadRequest)
+			responseErr(c, 100, "Some error", err)
 			return
 		}
-
-		c.JSON(http.StatusCreated, gin.H{
-			"resp": "Current userID",
-			"User": user,
+		resp := UserResp{
+			ID:       user.ID,
+			Username: user.Username,
+			Name:     user.Name,
+			Email:    user.Email,
+		}
+		responseOK(c, gin.H{
+			"User": resp,
 		})
 	}
 }

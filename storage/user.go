@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"strconv"
 
+	"github.com/pkg/errors"
+
 	"github.com/jmoiron/sqlx"
 )
 
@@ -37,7 +39,7 @@ func (s *Storage) CreateUser(user *User) (int64, error) {
 	// user.CreatedAt = timeNowFunc()
 	res, err := sqlx.NamedExec(s.db, createUserStmt, user)
 	if err != nil {
-		return 0, err
+		return 0, errors.WithStack(err)
 	}
 	return res.LastInsertId()
 }
@@ -49,7 +51,7 @@ func (s *Storage) UserByID(id int64) (*User, error) {
 	var user User
 	idconv := strconv.Itoa(int(id))
 	err := sqlx.Select(s.db, &user, selectUserByIDStmt, idconv)
-	return &user, err
+	return &user, errors.WithStack(err)
 }
 
 // Get user by username
@@ -58,7 +60,7 @@ func (s *Storage) UserByUsername(username string) (*User, error) {
 
 	var user User
 	err := sqlx.Get(s.db, &user, selectUserByUsernameStmt, username)
-	return user.conv(), err
+	return user.conv(), errors.WithStack(err)
 }
 
 // func (s *Storage) UserHash(username) (int64, error) {

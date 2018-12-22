@@ -1,3 +1,3 @@
 ### Start server
 
-`make run`
+`make start`
