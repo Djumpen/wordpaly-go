@@ -6,11 +6,13 @@ import (
 	"github.com/raja/argon2pw"
 )
 
+// swagger:parameters createUser
 type UserCreateReq struct {
 	Username string
 	Password string
 }
 
+// swagger:response userResponse
 type UserResp struct {
 	ID       int64
 	Username string
@@ -18,13 +20,10 @@ type UserResp struct {
 	Name     string
 }
 
+// swagger:route POST /users users createUser
+// Responses:
+//       200: userResponse
 func (api *API) CreateUser() func(c *gin.Context) {
-	// swagger:route GET /users
-	//
-	// Lists pets filtered by some parameters.
-	//
-	// This will show all available pets by default.
-	// You can get the pets that are out of stock
 	return func(c *gin.Context) {
 		var json UserCreateReq
 		if err := c.ShouldBindJSON(&json); err != nil {
@@ -56,6 +55,9 @@ func (api *API) CreateUser() func(c *gin.Context) {
 	}
 }
 
+// swagger:route GET /me users GetUser
+// Responses:
+//       200: userResponse
 func (api *API) GetCurrentUser() func(c *gin.Context) {
 	return func(c *gin.Context) {
 		user, err := extractUser(c)
