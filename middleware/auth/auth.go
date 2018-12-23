@@ -17,7 +17,7 @@ type UserGetter interface {
 	UserByUsername(username string) (*storage.User, error)
 }
 
-func Middleware(ug UserGetter) gin.HandlerFunc {
+func BasicAuth(ug UserGetter) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if creds, ok := checkAuth(c.GetHeader("Authorization")); ok {
 			user, err := ug.UserByUsername(creds[0])

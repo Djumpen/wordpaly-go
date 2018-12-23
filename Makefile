@@ -1,3 +1,2 @@
-
 start:
 	docker-compose up

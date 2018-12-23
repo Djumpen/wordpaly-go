@@ -49,16 +49,16 @@ func extractUser(c *gin.Context) (*storage.User, error) {
 	return user, nil
 }
 
-func responseOK(c *gin.Context, response gin.H) {
+func responseOK(c *gin.Context, res gin.H) {
 	c.JSON(http.StatusOK, gin.H{
-		"data":  response,
+		"data":  res,
 		"error": nil,
 	})
 }
 
-func responseCreated(c *gin.Context, response gin.H) {
+func responseCreated(c *gin.Context, res gin.H) {
 	c.JSON(http.StatusCreated, gin.H{
-		"data":  response,
+		"data":  res,
 		"error": nil,
 	})
 }
@@ -69,7 +69,7 @@ func responseErr(c *gin.Context, code int, description string, err error) {
 		"description": description,
 	}
 	if gin.Mode() == gin.DebugMode {
-		wrapDebug(errResp, err)
+		withDebug(errResp, err)
 	}
 	c.JSON(http.StatusBadRequest, gin.H{
 		"data":  nil,
@@ -77,7 +77,17 @@ func responseErr(c *gin.Context, code int, description string, err error) {
 	})
 }
 
-func wrapDebug(errResp gin.H, err error) {
+func responseNotFound(c *gin.Context) {
+	c.JSON(http.StatusNotFound, gin.H{
+		"data": nil,
+		"error": gin.H{
+			"code":        404,
+			"description": "NOT_FOUND",
+		},
+	})
+}
+
+func withDebug(errResp gin.H, err error) {
 	debugResp := gin.H{
 		"details": fmt.Sprintf("%s", err),
 	}
@@ -86,9 +96,9 @@ func wrapDebug(errResp gin.H, err error) {
 		trace := make(gin.H)
 		st := errSt.StackTrace()
 		for i, v := range st {
-			if i > 3 {
-				break
-			}
+			// if i > 3 {
+			// 	break
+			// }
 			trace[strconv.Itoa(i)] = fmt.Sprintf("%+v", v)
 		}
 		debugResp["trace"] = trace

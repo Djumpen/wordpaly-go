@@ -19,6 +19,12 @@ type UserResp struct {
 }
 
 func (api *API) CreateUser() func(c *gin.Context) {
+	// swagger:route GET /users
+	//
+	// Lists pets filtered by some parameters.
+	//
+	// This will show all available pets by default.
+	// You can get the pets that are out of stock
 	return func(c *gin.Context) {
 		var json UserCreateReq
 		if err := c.ShouldBindJSON(&json); err != nil {

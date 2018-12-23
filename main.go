@@ -5,6 +5,7 @@ import (
 
 	"github.com/djumpen/wordplay-go/api"
 	"github.com/djumpen/wordplay-go/cfg"
+	_ "github.com/djumpen/wordplay-go/doc"
 	"github.com/djumpen/wordplay-go/middleware/auth"
 	"github.com/djumpen/wordplay-go/mysqldb"
 	"github.com/djumpen/wordplay-go/storage"
@@ -14,9 +15,10 @@ import (
 
 // Setup docker +
 // Setup mysql +
-// Create middleware github.com/raja/argon2pw
-// Setup configuration (viper)
+// Create middleware github.com/raja/argon2pw +
+// Setup configuration (viper) +
 // Validation (swagger)
+//		-https://www.ribice.ba/swagger-golang/
 // Research migraations https://github.com/rubenv/sql-migrate
 // Error engine
 // JWT, oauth
@@ -42,6 +44,10 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
+	a := 1 + 100
+
+	fmt.Print(a)
+
 	db := mysqldb.New(config.DB)
 	storage := storage.NewStorage(db)
 	api := api.NewApi(&config, storage)
@@ -49,7 +55,7 @@ func main() {
 	r := gin.Default()
 
 	authorized := r.Group("/")
-	authorized.Use(auth.Middleware(storage))
+	authorized.Use(auth.BasicAuth(storage))
 	{
 		authorized.GET("/me", api.GetCurrentUser())
 
@@ -59,9 +65,7 @@ func main() {
 
 	r.POST("/users", api.CreateUser())
 
-	r.NoRoute(func(c *gin.Context) {
-		c.JSON(404, gin.H{"code": "PAGE_NOT_FOUND", "message": "Page not found"})
-	})
+	api.SetSystemRoutes(r)
 
 	r.Run(":8000")
 }
