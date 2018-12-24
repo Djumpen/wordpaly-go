@@ -1,0 +1,152 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Wordplay-go API.",
+    "version": "1.0"
+  },
+  "paths": {
+    "/me": {
+      "get": {
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "tags": [
+          "Users"
+        ],
+        "operationId": "GetMe",
+        "responses": {
+          "200": {
+            "schema": {
+              "$ref": "#/definitions/UserResp"
+            }
+          }
+        }
+      }
+    },
+    "/users": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "CreateUser",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/UserCreateReq"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "schema": {
+              "$ref": "#/definitions/UserCreatedResp"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "UserCreateReq": {
+      "type": "object",
+      "properties": {
+        "User": {
+          "$ref": "#/definitions/userCreateReq"
+        }
+      },
+      "x-go-package": "github.com/djumpen/wordplay-go/api"
+    },
+    "UserCreatedResp": {
+      "type": "object",
+      "properties": {
+        "User": {
+          "$ref": "#/definitions/userCreated"
+        }
+      },
+      "x-go-package": "github.com/djumpen/wordplay-go/api"
+    },
+    "UserResp": {
+      "type": "object",
+      "properties": {
+        "User": {
+          "$ref": "#/definitions/user"
+        }
+      },
+      "x-go-package": "github.com/djumpen/wordplay-go/api"
+    },
+    "user": {
+      "type": "object",
+      "properties": {
+        "Email": {
+          "type": "string"
+        },
+        "ID": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Username": {
+          "type": "string"
+        }
+      },
+      "x-go-package": "github.com/djumpen/wordplay-go/api"
+    },
+    "userCreateReq": {
+      "type": "object",
+      "properties": {
+        "Password": {
+          "type": "string"
+        },
+        "Username": {
+          "type": "string"
+        }
+      },
+      "x-go-package": "github.com/djumpen/wordplay-go/api"
+    },
+    "userCreated": {
+      "type": "object",
+      "properties": {
+        "ID": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "x-go-package": "github.com/djumpen/wordplay-go/api"
+    }
+  },
+  "responses": {
+    "UserCreatedResp": {
+      "schema": {
+        "$ref": "#/definitions/UserCreatedResp"
+      },
+      "headers": {
+        "Body": {}
+      }
+    },
+    "UserResp": {
+      "schema": {
+        "$ref": "#/definitions/UserResp"
+      },
+      "headers": {
+        "Body": {}
+      }
+    }
+  },
+  "securityDefinitions": {
+    "basicAuth": {
+      "type": "basic",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "basicAuth": []
+    }
+  ]
+}

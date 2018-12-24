@@ -2,11 +2,10 @@ package auth
 
 import (
 	"encoding/base64"
-	"fmt"
-	"net/http"
 	"strings"
 
-	"github.com/djumpen/wordplay-go/api"
+	"github.com/djumpen/wordplay-go/api/vars"
+
 	"github.com/djumpen/wordplay-go/storage"
 
 	"github.com/gin-gonic/gin"
@@ -17,31 +16,38 @@ type UserGetter interface {
 	UserByUsername(username string) (*storage.User, error)
 }
 
-func BasicAuth(ug UserGetter) gin.HandlerFunc {
+type Responder interface {
+	ResponseInternalError(c *gin.Context, err error)
+	ResponseUnauthorized(c *gin.Context, err error)
+	ResponseBadRequest(c *gin.Context, code int, description string, err error)
+}
+
+func BasicAuth(ug UserGetter, responder Responder) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if creds, ok := checkAuth(c.GetHeader("Authorization")); ok {
+		if creds, ok := checkBasicAuth(c.GetHeader("Authorization")); ok {
 			user, err := ug.UserByUsername(creds[0])
 			if err != nil {
-				// TODO: breake and response error
-				fmt.Println("tWO", err.Error())
-				c.AbortWithStatus(http.StatusInternalServerError)
+				responder.ResponseInternalError(c, err)
+				return
+			}
+			if user == nil {
+				responder.ResponseBadRequest(c, 101, "WRONG_CREDS", nil)
 				return
 			}
 			valid, err := argon2pw.CompareHashWithPassword(user.Hash, creds[1])
 			if err != nil || valid == false {
-				// TODO: breake and response error
-				fmt.Println("ONE", err.Error())
-				c.AbortWithStatus(http.StatusUnauthorized)
+				responder.ResponseUnauthorized(c, err)
 				return
 			}
-			c.Set(api.UserParam, user)
+			c.Set(vars.UserParam, user)
 			return
 		}
-		c.AbortWithStatus(http.StatusUnauthorized)
+		responder.ResponseUnauthorized(c, nil)
+		return
 	}
 }
 
-func checkAuth(header string) ([]string, bool) {
+func checkBasicAuth(header string) ([]string, bool) {
 	s := strings.SplitN(header, " ", 2)
 	if len(s) != 2 {
 		return nil, false

@@ -4,8 +4,7 @@ import (
 	"database/sql"
 	"strconv"
 
-	"github.com/pkg/errors"
-
+	"github.com/djumpen/wordplay-go/mysqldb"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -36,10 +35,12 @@ func (s *Storage) CreateUser(user *User) (int64, error) {
 		:hash
 	)`
 
-	// user.CreatedAt = timeNowFunc()
 	res, err := sqlx.NamedExec(s.db, createUserStmt, user)
 	if err != nil {
-		return 0, errors.WithStack(err)
+		if mysqldb.CheckError(err, mysqldb.ER_DUP_ENTRY) {
+			return 0, NewErr(err, ErrDuplicate)
+		}
+		return 0, err
 	}
 	return res.LastInsertId()
 }
@@ -51,7 +52,10 @@ func (s *Storage) UserByID(id int64) (*User, error) {
 	var user User
 	idconv := strconv.Itoa(int(id))
 	err := sqlx.Select(s.db, &user, selectUserByIDStmt, idconv)
-	return &user, errors.WithStack(err)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return &user, err
 }
 
 // Get user by username
@@ -60,13 +64,8 @@ func (s *Storage) UserByUsername(username string) (*User, error) {
 
 	var user User
 	err := sqlx.Get(s.db, &user, selectUserByUsernameStmt, username)
-	return user.conv(), errors.WithStack(err)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return user.conv(), err
 }
-
-// func (s *Storage) UserHash(username) (int64, error) {
-// 	var stmt = `SELECT * FROM user WHERE username = ? AND hash = ?`
-
-// 	var user *User
-// 	err := sqlx.Select(s.db, user, stmt, username, hash)
-// 	return user.ID, err
-// }

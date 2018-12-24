@@ -7,7 +7,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/djumpen/wordplay-go/cfg"
+	"github.com/djumpen/wordplay-go/api/vars"
+	"github.com/djumpen/wordplay-go/config"
 	"github.com/djumpen/wordplay-go/storage"
 	"github.com/gin-gonic/gin"
 	jsoniter "github.com/json-iterator/go"
@@ -16,29 +17,24 @@ import (
 type API struct {
 	version string
 	storage *storage.Storage
-	config  *cfg.Config
+	config  *config.Config
 }
 
 var json2 = jsoniter.ConfigCompatibleWithStandardLibrary
-
-const (
-	UserParam = "currUser"
-)
 
 type stackTracer interface {
 	StackTrace() errors.StackTrace
 }
 
-func NewApi(config *cfg.Config, storage *storage.Storage) *API {
+func NewApi(cfg *config.Config, storage *storage.Storage) *API {
 	return &API{
-		version: "1.0",
 		storage: storage,
-		config:  config,
+		config:  cfg,
 	}
 }
 
 func extractUser(c *gin.Context) (*storage.User, error) {
-	userIface, ok := c.Get(UserParam)
+	userIface, ok := c.Get(vars.UserParam)
 	if ok != true {
 		return nil, errors.New("Unauthorized")
 	}
@@ -49,61 +45,115 @@ func extractUser(c *gin.Context) (*storage.User, error) {
 	return user, nil
 }
 
-func responseOK(c *gin.Context, res gin.H) {
-	c.JSON(http.StatusOK, gin.H{
-		"data":  res,
-		"error": nil,
-	})
+type Response struct {
+	Data  interface{}      `json:"data"`
+	Error *errResponsePart `json:"error"`
 }
 
-func responseCreated(c *gin.Context, res gin.H) {
-	c.JSON(http.StatusCreated, gin.H{
-		"data":  res,
-		"error": nil,
-	})
+type errResponsePart struct {
+	Code        int                          `json:"code"`
+	Description string                       `json:"description"`
+	Fileds      map[string]fieldResponsePart `json:"fields,omitempty"`
+	Debug       debugResponsePart            `json:"debug,omitempty"`
 }
 
-func responseErr(c *gin.Context, code int, description string, err error) {
-	errResp := gin.H{
-		"code":        code,
-		"description": description,
+type fieldResponsePart struct {
+	Rule      string `json:"rule"`
+	RuleValue string `json:"ruleValue"`
+}
+
+type debugResponsePart struct {
+	Details string `json:"details"`
+	Trace   gin.H  `json:"trace,omimtempty"`
+}
+
+func (api *API) ResponseOK(c *gin.Context, res interface{}) {
+	response(c, http.StatusOK, res)
+}
+
+func (api *API) ResponseCreated(c *gin.Context, res interface{}) {
+	response(c, http.StatusCreated, res)
+}
+
+func (api *API) ResponseBadRequest(c *gin.Context, code int, description string, err error) {
+	reponseErr(c, http.StatusBadRequest, code, description, err, nil)
+}
+
+func (api *API) ResponseUnauthorized(c *gin.Context, err error) {
+	reponseErr(c, http.StatusUnauthorized, 401, "UNAUTHORIZED", err, nil)
+}
+
+func (api *API) ResponseForbidden(c *gin.Context) {
+	reponseErr(c, http.StatusForbidden, 403, "FORBIDDEN", nil, nil)
+}
+
+func (api *API) ResponseNotFound(c *gin.Context) {
+	reponseErr(c, http.StatusNotFound, 404, "NOT_FOUND", nil, nil)
+}
+
+func (api *API) ResponseConflict(c *gin.Context, err error) {
+	reponseErr(c, http.StatusConflict, 409, "CONFLICT", err, nil)
+}
+
+func (api *API) ResponseUnpocessable(c *gin.Context, description string, err error) {
+	reponseErr(c, http.StatusUnprocessableEntity, 422, description, err, nil)
+}
+
+func (api *API) ResponseInternalError(c *gin.Context, err error) {
+	reponseErr(c, http.StatusInternalServerError, 500, "SERVER_ERROR", err, nil)
+}
+
+func (api *API) ResponseErrWithFields(c *gin.Context, vf ValidationFailers) {
+	fields := make(map[string]fieldResponsePart)
+	for _, f := range vf {
+		fields[f.NameSpace] = fieldResponsePart{
+			Rule:      f.Rule,
+			RuleValue: f.RuleValue,
+		}
+	}
+	reponseErr(c, http.StatusUnprocessableEntity, 422, "VALIDATION", nil, fields)
+}
+
+func response(c *gin.Context, httpCode int, res interface{}) {
+	c.JSON(httpCode, Response{
+		Data: res,
+	})
+	c.Abort()
+}
+
+func reponseErr(c *gin.Context, httpCode, code int, description string, err error, fields map[string]fieldResponsePart) {
+	errResp := &errResponsePart{
+		Code:        code,
+		Description: description,
+		Fileds:      fields,
 	}
 	if gin.Mode() == gin.DebugMode {
 		withDebug(errResp, err)
 	}
-	c.JSON(http.StatusBadRequest, gin.H{
-		"data":  nil,
-		"error": errResp,
+	c.JSON(http.StatusBadRequest, Response{
+		Error: errResp,
 	})
+	c.Abort()
 }
 
-func responseNotFound(c *gin.Context) {
-	c.JSON(http.StatusNotFound, gin.H{
-		"data": nil,
-		"error": gin.H{
-			"code":        404,
-			"description": "NOT_FOUND",
-		},
-	})
-}
-
-func withDebug(errResp gin.H, err error) {
-	debugResp := gin.H{
-		"details": fmt.Sprintf("%s", err),
+func withDebug(errResp *errResponsePart, err error) {
+	if err == nil {
+		return
+	}
+	debugResp := debugResponsePart{
+		Details: fmt.Sprintf("%s", err),
 	}
 	errSt, ok := err.(stackTracer)
 	if ok {
 		trace := make(gin.H)
 		st := errSt.StackTrace()
 		for i, v := range st {
-			// if i > 3 {
-			// 	break
-			// }
+			if i > 3 {
+				break
+			}
 			trace[strconv.Itoa(i)] = fmt.Sprintf("%+v", v)
 		}
-		debugResp["trace"] = trace
+		debugResp.Trace = trace
 	}
-	errResp["debug"] = debugResp
+	errResp.Debug = debugResp
 }
-
-// func ResponseErrWithFields(c *gin.Context)

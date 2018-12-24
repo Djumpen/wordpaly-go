@@ -1,0 +1,94 @@
+definitions:
+  UserCreateReq:
+    properties:
+      User:
+        $ref: '#/definitions/userCreateReq'
+    type: object
+    x-go-package: github.com/djumpen/wordplay-go/api
+  UserCreatedResp:
+    properties:
+      User:
+        $ref: '#/definitions/userCreated'
+    type: object
+    x-go-package: github.com/djumpen/wordplay-go/api
+  UserResp:
+    properties:
+      User:
+        $ref: '#/definitions/user'
+    type: object
+    x-go-package: github.com/djumpen/wordplay-go/api
+  user:
+    properties:
+      Email:
+        type: string
+      ID:
+        format: int64
+        type: integer
+      Name:
+        type: string
+      Username:
+        type: string
+    type: object
+    x-go-package: github.com/djumpen/wordplay-go/api
+  userCreateReq:
+    properties:
+      Password:
+        type: string
+      Username:
+        type: string
+    type: object
+    x-go-package: github.com/djumpen/wordplay-go/api
+  userCreated:
+    properties:
+      ID:
+        format: int64
+        type: integer
+    type: object
+    x-go-package: github.com/djumpen/wordplay-go/api
+info:
+  title: Wordplay-go API.
+  version: "1.0"
+paths:
+  /me:
+    get:
+      operationId: GetMe
+      responses:
+        "200":
+          schema:
+            $ref: '#/definitions/UserResp'
+      security:
+      - basicAuth: []
+      tags:
+      - Users
+  /users:
+    post:
+      operationId: CreateUser
+      parameters:
+      - in: body
+        name: body
+        schema:
+          $ref: '#/definitions/UserCreateReq'
+      responses:
+        "201":
+          schema:
+            $ref: '#/definitions/UserCreatedResp'
+      tags:
+      - Users
+responses:
+  UserCreatedResp:
+    headers:
+      Body: {}
+    schema:
+      $ref: '#/definitions/UserCreatedResp'
+  UserResp:
+    headers:
+      Body: {}
+    schema:
+      $ref: '#/definitions/UserResp'
+security:
+- basicAuth: []
+securityDefinitions:
+  basicAuth:
+    in: header
+    type: basic
+swagger: "2.0"
