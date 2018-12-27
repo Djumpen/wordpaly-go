@@ -11,7 +11,7 @@ import (
 
 //New creates new database connection for mysql database
 func New(creds config.DB) *sqlx.DB {
-	db := sqlx.MustConnect("mysql", fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?timeout=5s",
+	db := sqlx.MustConnect("mysql", fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?timeout=5s&parseTime=True",
 		creds.User,
 		creds.Password,
 		creds.Host,

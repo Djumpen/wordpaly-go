@@ -1,6 +1,7 @@
 {
     "Version": "1.0",
-    "ReleaseMode": false,
+    "ReleaseMode": false,,
+    "Port": 8000,
 
     "DB": {
         "Host": "mysqldb",

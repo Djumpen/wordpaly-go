@@ -1,5 +1,8 @@
 start:
-	docker-compose up
+	docker-compose up mysqldb app
+
+migrate:
+	docker-compose up --abort-on-container-exit migration mysqldb
 
 gendoc:
 	swagger generate spec -b ./cmd -i ./doc/swagger_misc.yaml -o ./doc/swaggerui/swagger.json --scan-models
