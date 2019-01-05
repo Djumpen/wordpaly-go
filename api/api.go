@@ -5,32 +5,17 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/pkg/errors"
+	"github.com/djumpen/wordplay-go/apierrors"
 
 	"github.com/djumpen/wordplay-go/api/vars"
-	"github.com/djumpen/wordplay-go/config"
 	"github.com/djumpen/wordplay-go/storage"
+	"github.com/pkg/errors"
+
 	"github.com/gin-gonic/gin"
-	jsoniter "github.com/json-iterator/go"
 )
-
-type API struct {
-	version string
-	storage *storage.Storage
-	config  *config.Config
-}
-
-var json2 = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type stackTracer interface {
 	StackTrace() errors.StackTrace
-}
-
-func NewApi(cfg *config.Config, storage *storage.Storage) *API {
-	return &API{
-		storage: storage,
-		config:  cfg,
-	}
 }
 
 func extractUser(c *gin.Context) (*storage.User, error) {
@@ -45,15 +30,32 @@ func extractUser(c *gin.Context) (*storage.User, error) {
 	return user, nil
 }
 
+type objJson map[string]interface{}
+
+func (j objJson) extractStringValue(key string) (string, error) {
+	valIface, ok := j[key]
+	if ok == false {
+		// TODO: return validation error
+		return "", errors.Errorf("No key %s", key)
+	}
+	val, ok := valIface.(string)
+	if ok == false {
+		// TODO: return validation error
+		return "", errors.Errorf("%s is not a string", key)
+	}
+	return val, nil
+}
+
 type Response struct {
-	Data  interface{}      `json:"data"`
-	Error *errResponsePart `json:"error"`
+	Success bool             `json:"success"`
+	Data    interface{}      `json:"data"`
+	Error   *errResponsePart `json:"error"`
 }
 
 type errResponsePart struct {
 	Code        int                          `json:"code"`
 	Description string                       `json:"description"`
-	Fileds      map[string]fieldResponsePart `json:"fields,omitempty"`
+	Fields      map[string]fieldResponsePart `json:"fields,omitempty"`
 	Debug       debugResponsePart            `json:"debug,omitempty"`
 }
 
@@ -67,43 +69,45 @@ type debugResponsePart struct {
 	Trace   gin.H  `json:"trace,omimtempty"`
 }
 
-func (api *API) ResponseOK(c *gin.Context, res interface{}) {
+type Responder struct{}
+
+func (r *Responder) ResponseOK(c *gin.Context, res interface{}) {
 	response(c, http.StatusOK, res)
 }
 
-func (api *API) ResponseCreated(c *gin.Context, res interface{}) {
+func (r *Responder) ResponseCreated(c *gin.Context, res interface{}) {
 	response(c, http.StatusCreated, res)
 }
 
-func (api *API) ResponseBadRequest(c *gin.Context, code int, description string, err error) {
+func (r *Responder) ResponseBadRequest(c *gin.Context, code int, description string, err error) {
 	reponseErr(c, http.StatusBadRequest, code, description, err, nil)
 }
 
-func (api *API) ResponseUnauthorized(c *gin.Context, err error) {
+func (r *Responder) ResponseUnauthorized(c *gin.Context, err error) {
 	reponseErr(c, http.StatusUnauthorized, 401, "UNAUTHORIZED", err, nil)
 }
 
-func (api *API) ResponseForbidden(c *gin.Context) {
+func (r *Responder) ResponseForbidden(c *gin.Context) {
 	reponseErr(c, http.StatusForbidden, 403, "FORBIDDEN", nil, nil)
 }
 
-func (api *API) ResponseNotFound(c *gin.Context) {
-	reponseErr(c, http.StatusNotFound, 404, "NOT_FOUND", nil, nil)
+func (r *Responder) ResponseNotFound(c *gin.Context, description string) {
+	reponseErr(c, http.StatusNotFound, 404, description, nil, nil)
 }
 
-func (api *API) ResponseConflict(c *gin.Context, err error) {
+func (r *Responder) ResponseConflict(c *gin.Context, err error) {
 	reponseErr(c, http.StatusConflict, 409, "CONFLICT", err, nil)
 }
 
-func (api *API) ResponseUnpocessable(c *gin.Context, description string, err error) {
+func (r *Responder) ResponseUnprocessable(c *gin.Context, description string, err error) {
 	reponseErr(c, http.StatusUnprocessableEntity, 422, description, err, nil)
 }
 
-func (api *API) ResponseInternalError(c *gin.Context, err error) {
+func (r *Responder) ResponseInternalError(c *gin.Context, err error) {
 	reponseErr(c, http.StatusInternalServerError, 500, "SERVER_ERROR", err, nil)
 }
 
-func (api *API) ResponseErrWithFields(c *gin.Context, vf ValidationFailers) {
+func (r *Responder) ResponseErrWithFields(c *gin.Context, vf ValidationFailers) {
 	fields := make(map[string]fieldResponsePart)
 	for _, f := range vf {
 		fields[f.NameSpace] = fieldResponsePart{
@@ -116,7 +120,8 @@ func (api *API) ResponseErrWithFields(c *gin.Context, vf ValidationFailers) {
 
 func response(c *gin.Context, httpCode int, res interface{}) {
 	c.JSON(httpCode, Response{
-		Data: res,
+		Success: true,
+		Data:    res,
 	})
 	c.Abort()
 }
@@ -125,13 +130,14 @@ func reponseErr(c *gin.Context, httpCode, code int, description string, err erro
 	errResp := &errResponsePart{
 		Code:        code,
 		Description: description,
-		Fileds:      fields,
+		Fields:      fields,
 	}
 	if gin.Mode() == gin.DebugMode {
 		withDebug(errResp, err)
 	}
-	c.JSON(http.StatusBadRequest, Response{
-		Error: errResp,
+	c.JSON(httpCode, Response{
+		Success: false,
+		Error:   errResp,
 	})
 	c.Abort()
 }
@@ -156,4 +162,28 @@ func withDebug(errResp *errResponsePart, err error) {
 		debugResp.Trace = trace
 	}
 	errResp.Debug = debugResp
+}
+
+// TODO: Under development
+func (r *Responder) HandleError(c *gin.Context, err error) {
+	if err == nil {
+		return
+	}
+	if vf, ok := getValidationFailers(err); ok {
+		r.ResponseErrWithFields(c, vf)
+		return
+	}
+	switch err.(type) {
+	case errNoRows:
+		r.ResponseNotFound(c, err.Error())
+		return
+	case *apierrors.Unauthorized:
+		r.ResponseUnauthorized(c, err)
+		return
+	}
+	r.ResponseInternalError(c, err)
+}
+
+type errNoRows interface {
+	IsNoRows() bool
 }

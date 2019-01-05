@@ -2,7 +2,9 @@ package config
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/spf13/viper"
 )
 
@@ -21,17 +23,27 @@ type DB struct {
 	Password string
 }
 
-func ReadConfig() *Config {
+func ReadConfig() (*Config, error) {
 	var cfg Config
 	viper.SetConfigName("config")
 	viper.AddConfigPath(".")
 	err := viper.ReadInConfig()
 	if err != nil {
-		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+		return nil, fmt.Errorf("Fatal error config file: %s \n", err)
 	}
 	err = viper.Unmarshal(&cfg)
 	if err != nil {
-		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+		return nil, fmt.Errorf("Fatal error config file: %s \n", err)
 	}
-	return &cfg
+	return &cfg, nil
+}
+
+func GetCorsConfig() cors.Config {
+	return cors.Config{
+		AllowAllOrigins:  true,
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
+		AllowHeaders:     []string{"Origin"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}
 }

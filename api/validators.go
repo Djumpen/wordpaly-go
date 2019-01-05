@@ -24,8 +24,6 @@ func getValidationFailers(err error) (vf ValidationFailers, ok bool) {
 				RuleValue: v.Param,
 				Value:     v.Value,
 			})
-			// fmt.Printf("KEY %#v\n", k)
-			// fmt.Printf("VALUE %#v\n", *v)
 		}
 		return vf, true
 	}

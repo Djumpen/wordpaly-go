@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/djumpen/wordplay-go/api/vars"
+	"github.com/djumpen/wordplay-go/apierrors"
 
 	"github.com/djumpen/wordplay-go/storage"
 
@@ -16,34 +17,31 @@ type UserGetter interface {
 	UserByUsername(username string) (*storage.User, error)
 }
 
-type Responder interface {
-	ResponseInternalError(c *gin.Context, err error)
-	ResponseUnauthorized(c *gin.Context, err error)
-	ResponseBadRequest(c *gin.Context, code int, description string, err error)
+type ErrorHandler interface {
+	HandleError(*gin.Context, error)
 }
 
-func BasicAuth(ug UserGetter, responder Responder) gin.HandlerFunc {
+func BasicAuth(ug UserGetter, handler ErrorHandler) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if creds, ok := checkBasicAuth(c.GetHeader("Authorization")); ok {
-			user, err := ug.UserByUsername(creds[0])
-			if err != nil {
-				responder.ResponseInternalError(c, err)
-				return
+		handler.HandleError(c, func() error {
+			errUnauthorized := &apierrors.Unauthorized{}
+			if creds, ok := checkBasicAuth(c.GetHeader("Authorization")); ok {
+				user, err := ug.UserByUsername(creds[0])
+				if err != nil {
+					return err
+				}
+				if user == nil {
+					return errUnauthorized
+				}
+				valid, err := argon2pw.CompareHashWithPassword(user.Hash, creds[1])
+				if err != nil || valid == false {
+					return errUnauthorized
+				}
+				c.Set(vars.UserParam, user)
+				return nil
 			}
-			if user == nil {
-				responder.ResponseBadRequest(c, 101, "WRONG_CREDS", nil)
-				return
-			}
-			valid, err := argon2pw.CompareHashWithPassword(user.Hash, creds[1])
-			if err != nil || valid == false {
-				responder.ResponseUnauthorized(c, err)
-				return
-			}
-			c.Set(vars.UserParam, user)
-			return
-		}
-		responder.ResponseUnauthorized(c, nil)
-		return
+			return errUnauthorized
+		}())
 	}
 }
 

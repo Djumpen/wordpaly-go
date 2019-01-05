@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"strconv"
 
-	"github.com/djumpen/wordplay-go/mysqldb"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -25,8 +24,14 @@ func (u *User) conv() *User {
 	return u
 }
 
+type userStorage struct{}
+
+func NewUserStorage() *userStorage {
+	return &userStorage{}
+}
+
 // Create new user
-func (s *Storage) CreateUser(user *User) (int64, error) {
+func (s *userStorage) Create(tx *sql.Tx, user *User) (int64, error) {
 	var createUserStmt = `INSERT INTO user ( 
 		username,
 		hash
@@ -35,35 +40,30 @@ func (s *Storage) CreateUser(user *User) (int64, error) {
 		:hash
 	)`
 
-	res, err := sqlx.NamedExec(s.db, createUserStmt, user)
+	res, err := sqlx.NamedExec(txx(tx), createUserStmt, user)
 	if err != nil {
-		if mysqldb.CheckError(err, mysqldb.ER_DUP_ENTRY) {
-			return 0, NewErr(err, ErrDuplicate)
-		}
-		return 0, err
+		return 0, wrapErr(err)
 	}
 	return res.LastInsertId()
 }
 
 // Get user by ID
-func (s *Storage) UserByID(id int64) (*User, error) {
+func (s *userStorage) UserByID(tx *sql.Tx, id int64) (*User, error) {
 	var selectUserByIDStmt = `SELECT * FROM user WHERE id = ?`
 
 	var user User
 	idconv := strconv.Itoa(int(id))
-	err := sqlx.Select(s.db, &user, selectUserByIDStmt, idconv)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	return &user, err
+	err := sqlx.Select(txx(tx), &user, selectUserByIDStmt, idconv)
+
+	return &user, wrapErr(err)
 }
 
 // Get user by username
-func (s *Storage) UserByUsername(username string) (*User, error) {
+func (s *userStorage) UserByUsername(tx *sql.Tx, username string) (*User, error) {
 	var selectUserByUsernameStmt = `SELECT * FROM user WHERE username = ? LIMIT 1`
 
 	var user User
-	err := sqlx.Get(s.db, &user, selectUserByUsernameStmt, username)
+	err := sqlx.Get(txx(tx), &user, selectUserByUsernameStmt, username)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
