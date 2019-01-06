@@ -2,26 +2,23 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 type commonResource struct {
 	resp *Responder
 }
 
-func RegisterCommonResource(r *gin.Engine) {
-	resource := commonResource{
-		resp: &Responder{},
+func NewCommonResource(resp *Responder) *commonResource {
+	return &commonResource{
+		resp: resp,
 	}
-
-	r.GET("/sanity", resource.Sanity)
-	r.Static("/swaggerui/", "doc/swaggerui")
-	r.NoRoute(resource.NotFound)
 }
 
 func (r *commonResource) Sanity(c *gin.Context) {
-	r.resp.ResponseOK(c, nil)
+	r.resp.OK(c, nil)
 }
 
 func (r *commonResource) NotFound(c *gin.Context) {
-	r.resp.ResponseNotFound(c, "Route not found")
+	r.resp.NotFound(c, errors.New("Resource not found"))
 }

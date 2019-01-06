@@ -8,33 +8,13 @@ import (
 	"github.com/djumpen/wordplay-go/api"
 	"github.com/djumpen/wordplay-go/config"
 	_ "github.com/djumpen/wordplay-go/doc"
+	"github.com/djumpen/wordplay-go/middleware/auth"
 	"github.com/djumpen/wordplay-go/mysqldb"
 	"github.com/djumpen/wordplay-go/services"
 	"github.com/djumpen/wordplay-go/storage"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
-
-// --------------------------------------------------------------
-// TODO Roadmap:
-// Setup docker +
-// Setup mysql +
-// Create middleware github.com/raja/argon2pw +
-// Setup configuration (viper) +
-// Documentation https://www.ribice.ba/swagger-golang/ +
-// Research migrations https://github.com/rubenv/sql-migrate +
-// Validation
-// Error engine
-// JWT, oauth https://github.com/appleboy/gin-jwt
-// Access levels
-// Limits
-// Cors
-// Tests, db test tools
-// Research logs https://github.com/Sirupsen/logrus
-// Cache
-// Deployment (kubernetes)
-// Monitoring
-// --------------------------------------------------------------
 
 func main() {
 	cfg, err := config.ReadConfig()
@@ -47,18 +27,31 @@ func main() {
 	}
 
 	db := mysqldb.New(cfg.DB)
+	responder := api.NewResponder()
 
-	router := gin.Default()
-	router.RedirectTrailingSlash = true
-	router.Use(cors.New(config.GetCorsConfig()))
+	r := gin.Default()
+	r.RedirectTrailingSlash = true
+	r.Use(cors.New(config.GetCorsConfig()))
 
-	// ------------------------ Register Resources ------------------------
 	usersSvc := services.NewUsersService(storage.NewUserStorage(), db.DB)
-	api.RegisterUsersResource(router, usersSvc)
-	// --------------------------------------------------------------------
+	userResource := api.NewUsersResource(usersSvc, responder)
+
+	commonResource := api.NewCommonResource(responder)
+
+	authMiddleware := auth.BasicAuth(usersSvc, responder)
+	authR := r.Group("/").Use(authMiddleware)
+
+	// ---------- Routes -------------------
+	r.POST("/users", userResource.Create)
+	authR.GET("/me", userResource.GetCurrentUser)
+
+	r.GET("/sanity", commonResource.Sanity)
+	r.NoRoute(commonResource.NotFound)
+	r.Static("/swaggerui/", "doc/swaggerui")
+	// --------------------------------------------
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
-	if err := http.ListenAndServe(addr, router); err != nil {
+	if err := http.ListenAndServe(addr, r); err != nil {
 		log.Fatalf("error in ListenAndServe: %s", err)
 	}
 }

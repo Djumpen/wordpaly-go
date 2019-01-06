@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/djumpen/wordplay-go/apierrors"
+	validator "gopkg.in/go-playground/validator.v8"
 
 	"github.com/djumpen/wordplay-go/api/vars"
 	"github.com/djumpen/wordplay-go/storage"
@@ -13,10 +14,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
-
-type stackTracer interface {
-	StackTrace() errors.StackTrace
-}
 
 func extractUser(c *gin.Context) (*storage.User, error) {
 	userIface, ok := c.Get(vars.UserParam)
@@ -46,6 +43,13 @@ func (j objJson) extractStringValue(key string) (string, error) {
 	return val, nil
 }
 
+type SimpleResponder interface {
+	OK(c *gin.Context, res interface{})
+	Created(c *gin.Context, res interface{})
+	NotFound(c *gin.Context, err error)
+	HandleError(c *gin.Context, err error)
+}
+
 type Response struct {
 	Success bool             `json:"success"`
 	Data    interface{}      `json:"data"`
@@ -71,39 +75,43 @@ type debugResponsePart struct {
 
 type Responder struct{}
 
-func (r *Responder) ResponseOK(c *gin.Context, res interface{}) {
+func NewResponder() *Responder {
+	return &Responder{}
+}
+
+func (r *Responder) OK(c *gin.Context, res interface{}) {
 	response(c, http.StatusOK, res)
 }
 
-func (r *Responder) ResponseCreated(c *gin.Context, res interface{}) {
+func (r *Responder) Created(c *gin.Context, res interface{}) {
 	response(c, http.StatusCreated, res)
 }
 
-func (r *Responder) ResponseBadRequest(c *gin.Context, code int, description string, err error) {
+func (r *Responder) BadRequest(c *gin.Context, code int, description string, err error) {
 	reponseErr(c, http.StatusBadRequest, code, description, err, nil)
 }
 
-func (r *Responder) ResponseUnauthorized(c *gin.Context, err error) {
+func (r *Responder) Unauthorized(c *gin.Context, err error) {
 	reponseErr(c, http.StatusUnauthorized, 401, "UNAUTHORIZED", err, nil)
 }
 
-func (r *Responder) ResponseForbidden(c *gin.Context) {
+func (r *Responder) Forbidden(c *gin.Context) {
 	reponseErr(c, http.StatusForbidden, 403, "FORBIDDEN", nil, nil)
 }
 
-func (r *Responder) ResponseNotFound(c *gin.Context, description string) {
-	reponseErr(c, http.StatusNotFound, 404, description, nil, nil)
+func (r *Responder) NotFound(c *gin.Context, err error) {
+	reponseErr(c, http.StatusNotFound, 404, "NOT_FOUND", err, nil)
 }
 
-func (r *Responder) ResponseConflict(c *gin.Context, err error) {
+func (r *Responder) Conflict(c *gin.Context, err error) {
 	reponseErr(c, http.StatusConflict, 409, "CONFLICT", err, nil)
 }
 
-func (r *Responder) ResponseUnprocessable(c *gin.Context, description string, err error) {
+func (r *Responder) Unprocessable(c *gin.Context, description string, err error) {
 	reponseErr(c, http.StatusUnprocessableEntity, 422, description, err, nil)
 }
 
-func (r *Responder) ResponseInternalError(c *gin.Context, err error) {
+func (r *Responder) InternalError(c *gin.Context, err error) {
 	reponseErr(c, http.StatusInternalServerError, 500, "SERVER_ERROR", err, nil)
 }
 
@@ -143,6 +151,9 @@ func reponseErr(c *gin.Context, httpCode, code int, description string, err erro
 }
 
 func withDebug(errResp *errResponsePart, err error) {
+	type stackTracer interface {
+		StackTrace() errors.StackTrace
+	}
 	if err == nil {
 		return
 	}
@@ -164,7 +175,32 @@ func withDebug(errResp *errResponsePart, err error) {
 	errResp.Debug = debugResp
 }
 
-// TODO: Under development
+type ValidationFailers []validationFailer
+
+type validationFailer struct {
+	NameSpace string
+	Field     string
+	Rule      string
+	RuleValue string
+	Value     interface{}
+}
+
+func getValidationFailers(err error) (vf ValidationFailers, ok bool) {
+	if ve, ok := err.(validator.ValidationErrors); ok {
+		for _, v := range ve {
+			vf = append(vf, validationFailer{
+				NameSpace: v.NameNamespace,
+				Field:     v.Field,
+				Rule:      v.Tag,
+				RuleValue: v.Param,
+				Value:     v.Value,
+			})
+		}
+		return vf, true
+	}
+	return nil, false
+}
+
 func (r *Responder) HandleError(c *gin.Context, err error) {
 	if err == nil {
 		return
@@ -174,16 +210,15 @@ func (r *Responder) HandleError(c *gin.Context, err error) {
 		return
 	}
 	switch err.(type) {
-	case errNoRows:
-		r.ResponseNotFound(c, err.Error())
+	case *apierrors.NoRows:
+		r.NotFound(c, err)
 		return
 	case *apierrors.Unauthorized:
-		r.ResponseUnauthorized(c, err)
+		r.Unauthorized(c, err)
+		return
+	case *apierrors.DuplicateEntry:
+		r.Conflict(c, err)
 		return
 	}
-	r.ResponseInternalError(c, err)
-}
-
-type errNoRows interface {
-	IsNoRows() bool
+	r.InternalError(c, err)
 }

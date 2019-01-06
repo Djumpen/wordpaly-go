@@ -42,30 +42,30 @@ func (s *userStorage) Create(tx *sql.Tx, user *User) (int64, error) {
 
 	res, err := sqlx.NamedExec(txx(tx), createUserStmt, user)
 	if err != nil {
-		return 0, wrapErr(err)
+		return 0, wrapError(err)
 	}
 	return res.LastInsertId()
 }
 
 // Get user by ID
-func (s *userStorage) UserByID(tx *sql.Tx, id int64) (*User, error) {
+func (s *userStorage) ByID(tx *sql.Tx, id int64) (*User, error) {
 	var selectUserByIDStmt = `SELECT * FROM user WHERE id = ?`
 
 	var user User
 	idconv := strconv.Itoa(int(id))
 	err := sqlx.Select(txx(tx), &user, selectUserByIDStmt, idconv)
 
-	return &user, wrapErr(err)
+	return &user, wrapError(err)
 }
 
 // Get user by username
-func (s *userStorage) UserByUsername(tx *sql.Tx, username string) (*User, error) {
+func (s *userStorage) ByUsername(tx *sql.Tx, username string) (*User, error) {
 	var selectUserByUsernameStmt = `SELECT * FROM user WHERE username = ? LIMIT 1`
 
 	var user User
 	err := sqlx.Get(txx(tx), &user, selectUserByUsernameStmt, username)
-	if err == sql.ErrNoRows {
-		return nil, nil
+	if err != nil {
+		return nil, wrapError(err)
 	}
-	return user.conv(), err
+	return user.conv(), nil
 }

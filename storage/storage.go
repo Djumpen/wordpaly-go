@@ -3,6 +3,8 @@ package storage
 import (
 	"database/sql"
 
+	"github.com/djumpen/wordplay-go/apierrors"
+	"github.com/djumpen/wordplay-go/mysqldb"
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/reflectx"
 )
@@ -23,8 +25,12 @@ import (
 // 	}
 // }
 
+// func (e *StorageError) Error() string {
+// 	return e.err.Error()
+// }
+
 // func CheckError(err error, code string) bool {
-// 	if e, ok := err.(*StorageError); ok {
+// 	if e, ok := err.(*mysql.); ok {
 // 		if e.code == code {
 // 			return true
 // 		}
@@ -32,31 +38,18 @@ import (
 // 	return false
 // }
 
-// func (e *StorageError) Error() string {
-// 	return e.err.Error()
-// }
-
-type ErrNoRows string
-
-func (e ErrNoRows) Error() string {
-	return string(e)
-}
-func (e ErrNoRows) IsNoRows() bool {
-	return true
-}
-
-func wrapErr(err error) error {
+// TODO: add errrors
+func wrapError(err error) error {
 	switch err {
 	case nil:
 		return nil
 	case sql.ErrNoRows:
-		return ErrNoRows(err.Error())
+		return apierrors.NewNoRows(err)
+	}
+	if mysqldb.CheckError(err, mysqldb.ER_DUP_ENTRY) {
+		return apierrors.NewDuplicateEntry(err)
 	}
 	return err
-	// TODO: add errrors
-	// if mysqldb.CheckError(err, mysqldb.ER_DUP_ENTRY) {
-	// 	return 0, NewErr(err, ErrDuplicate)
-	// }
 }
 
 func txx(tx *sql.Tx) sqlx.Ext {

@@ -41,17 +41,14 @@ type usersSerivce interface {
 
 type usersResource struct {
 	svc  usersSerivce
-	resp *Responder
+	resp SimpleResponder
 }
 
-func RegisterUsersResource(r *gin.Engine, svc usersSerivce) {
-	resource := &usersResource{
+func NewUsersResource(svc usersSerivce, resp SimpleResponder) *usersResource {
+	return &usersResource{
 		svc:  svc,
-		resp: &Responder{},
+		resp: resp,
 	}
-
-	r.POST("/users", resource.Create)
-	r.GET("/me", resource.GetCurrentUser)
 }
 
 // swagger:operation POST /users Users CreateUser
@@ -84,7 +81,7 @@ func (r *usersResource) Create(c *gin.Context) {
 			return err
 		}
 
-		r.resp.ResponseCreated(c, UserCreatedResp{
+		r.resp.Created(c, UserCreatedResp{
 			User: userCreated{
 				ID: id,
 			},
@@ -105,10 +102,10 @@ func (r *usersResource) GetCurrentUser(c *gin.Context) {
 	r.resp.HandleError(c, func() error {
 		u, err := extractUser(c)
 		if err != nil {
-			return apierrors.NewUnauthorized()
+			return apierrors.NewUnauthorized("Can't get user")
 		}
 
-		r.resp.ResponseOK(c, UserResp{
+		r.resp.OK(c, UserResp{
 			User: userRespPart{
 				ID:       u.ID,
 				Username: u.Username,

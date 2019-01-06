@@ -14,7 +14,7 @@ import (
 )
 
 type UserGetter interface {
-	UserByUsername(username string) (*storage.User, error)
+	ByUsername(username string) (*storage.User, error)
 }
 
 type ErrorHandler interface {
@@ -26,7 +26,7 @@ func BasicAuth(ug UserGetter, handler ErrorHandler) gin.HandlerFunc {
 		handler.HandleError(c, func() error {
 			errUnauthorized := &apierrors.Unauthorized{}
 			if creds, ok := checkBasicAuth(c.GetHeader("Authorization")); ok {
-				user, err := ug.UserByUsername(creds[0])
+				user, err := ug.ByUsername(creds[0])
 				if err != nil {
 					return err
 				}

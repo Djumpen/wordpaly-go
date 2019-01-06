@@ -8,6 +8,7 @@ import (
 
 type usersStorage interface {
 	Create(*sql.Tx, *storage.User) (int64, error)
+	ByUsername(tx *sql.Tx, username string) (*storage.User, error)
 }
 
 type usersSerice struct {
@@ -23,8 +24,16 @@ func NewUsersService(st usersStorage, db *sql.DB) *usersSerice {
 }
 
 func (s *usersSerice) Create(u *storage.User) (id int64, err error) {
-	err = withTransaction(s.db, func(tx *sql.Tx) error {
+	withTransaction(s.db, func(tx *sql.Tx) error {
 		id, err = s.st.Create(tx, u)
+		return err
+	})
+	return
+}
+
+func (s *usersSerice) ByUsername(u string) (user *storage.User, err error) {
+	withTransaction(s.db, func(tx *sql.Tx) error {
+		user, err = s.st.ByUsername(tx, u)
 		return err
 	})
 	return
